@@ -28,11 +28,10 @@ func init() {
 
 func main() {
 	var err error
-	partitionId, err = utils.LockPartition("postgres_outlet", numPartitions, lockTTL)
 	if err != nil {
 		log.Fatal("Unable to lock partition.")
 	}
-	redisRefSource := NewRedisRefSource(1, partitionId, "postgres_outlet")
+	redisRefSource := NewRedisRefSource(1, numPartitions, lockTTL, "postgres_outlet")
 	redisRefSource.Start()
 	outlets := make([]*PostgresOutlet, workers)
 	redisOutbox := redisRefSource.sender.NewOutputChannel("postgres")

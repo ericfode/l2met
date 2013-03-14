@@ -269,16 +269,18 @@ type RedisRefSource struct {
 	sender        *SingleSender
 	control       chan bool
 	mailbox       string
-	partition     uint64
+	numPartitions uint64
+	lockTTL       uint64
 	fetchInterval int
 }
 
-func NewRedisRefSource(fetchInterval int, partition uint64, mailbox string) (r *RedisRefSource) {
+func NewRedisRefSource(fetchInterval int, numPartitions uint64, lockTTL uint64, mailbox string) (r *RedisRefSource) {
 	r = &RedisRefSource{
 		sender:        NewSingleSender(),
 		control:       make(chan bool),
 		mailbox:       mailbox,
-		partition:     partition,
+		numPartitions: numPartitions,
+		lockTTL:       lockTTL,
 		fetchInterval: fetchInterval}
 	return r
 }
@@ -308,7 +310,12 @@ func (s *RedisRefSource) runScanBuckets() {
 
 func (s *RedisRefSource) fetch(t time.Time) {
 	fmt.Printf("at=start_fetch minute=%d\n", t.Minute())
-	mailbox := fmt.Sprintf("%s.%d", s.mailbox, s.partition)
+	//kludgey
+	partition, err := utils.LockPartition(s.mailbox, s.numPartitions, s.lockTTL)
+	if err != nil {
+		fmt.Printf("Unable to lock partition.")
+	}
+	mailbox := fmt.Sprintf("%s.%d", s.mailbox, partition)
 	s.scanBuckets(mailbox)
 }
 

@@ -1,17 +1,25 @@
 # l2met
 
-Convert your log stream into charts and actionable alerts in less than 1 minute
-with 0 software installation.
+Convert a formatted log stream into metrics.
 
+* [Synopsis](#synopsis)
 * [Log Conventions](#log-conventions)
 * [API](#api)
 * [Setup](#setup)
 
+## Synopsis
+
+L2met receives HTTP requests that contain a body of rfc5424 formatted data. Commonly data is drained into l2met by [logplex](https://github.com/heroku/logplex) or [log-shuttle](https://github.com/ryandotsmith/log-shuttle).
+
+Once data is delivered, l2met extracts and parses the individual log lines using the [log conventions](#log-conventions) and then stores the data in redis so that outlets can read the data and build metrics.
+
+![img](http://f.cl.ly/items/3W2n313N3p1x0d0m1e35/l2met-arch.png)
+
 ## Log Conventions
 
-L2met uses convention over configuration to build metrics.
+L2met uses convention over configuration to build metrics. There are two basic metric types: Counters & Lists.
 
-### Counter Metric
+### Counters
 
 Metrics Produced:
 
@@ -21,9 +29,9 @@ Metrics Produced:
 measure="app.module.function"
 ```
 
-### Sample Metric
+### Lists
 
-Samples are useful for building metrics around time based functions. For instance, the elapsed duration of a function call. Or you can measure the value of an in memory resource.
+Lists are useful for building metrics around time based functions. For instance, the elapsed duration of a function call. Or you can measure the value of an in memory resource.
 
 Metrics Produced:
 
@@ -156,7 +164,13 @@ If you are a Herokai, there is no need to setup this software. We have a product
 
 ### Heroku Setup
 
-Create a Heroku app.
+You can run l2met in a multi-tenant mode or a single-user mode. The multi-tenant mode enable multiple drains with unique librato accounts. The single-user mode exposes 1 drain and maps to 1 librato account. The Heroku Setup assumes single-user mode.
+
+#### Create Librato Account
+
+Once you have created the account, visit your [settings](https://metrics.librato.com/account) page to grab you username and token. Keep this page open as you will need this data later in the setup.
+
+#### Create a Heroku app.
 
 ```bash
 $ git clone git://github.com/ryandotsmith/l2met.git
@@ -165,24 +179,57 @@ $ heroku create your-l2met --buildpack git://github.com/kr/heroku-buildpack-go.g
 $ git push heroku master
 ```
 
-Add database services.
+#### Add database services.
+
+I prefer redisgreen, however there are cheaper alternatives. Whichever provider you choose, ensure that you have set REDIS_URL properly.
 
 ```bash
-$ heroku addons:add heroku-postgresql:dev
 $ heroku addons:add redisgreen:basic
+$ heroku config:set REDIS_URL=$(heroku config -s | grep "^REDISGREEN_URL" | sed 's/REDISGREEN_URL=//')
 ```
 
-Setup PostgreSQL schema.
+#### Update Heroku config.
 
 ```bash
-$ heroku pg:promote
-$ heroku pg:psql
-\i ./sql/schema.sql
+$ heroku config:set APP_NAME=your-l2met LOCAL_WORKERS=2
+$ heroku config:set LIBRATO_USER=me@domain.com LIBRATO_TOKEN=abc123
 ```
 
-Update Heroku config.
+#### Scale processes.
 
 ```bash
-$ heroku config:add APP_NAME=your-l2met
-$ heroku config:add NUM_LIBRATO_WORKERS=1
+$ heroku scale web=1 librato_outlet=1
 ```
+
+If you wish to run more than 1 outlet, you will need to adjust a config variable in addition to scaling the process. For example, if you are running 2 librato_outlets:
+
+```bash
+$ heroku config:set NUM_OUTLET_PARTITIONS=2
+$ heroku scale librato_outlet=2
+```
+
+#### Add drain to your Heroku app(s)
+
+Now that you have created an l2met app, you can drain logs from other heroku apps into l2met.
+
+```bash
+$ heroku drains:add https://l2met:`uuid`@your-l2met.herokuapp.com/logs -a your-app-that-needs-l2met
+```
+
+#### Test
+
+Install [log-shuttle](https://github.com/ryandotsmith/log-shuttle).
+
+```bash
+$ curl -o log-shuttle "https://s3.amazonaws.com/32k.io/bin/log-shuttle"
+$ chmod +x log-shuttle
+```
+
+Send data to l2met.
+
+```bash
+$ export LOGPLEX_URL=https://l2met:123@your-l2met.herokuapp.com/logs
+$ echo 'measure="hello-from-your-l2met"' | log-shuttle
+```
+
+Now you should be able to see `hello-from-your-l2met` in your librato metrics web ui.
