@@ -444,7 +444,8 @@ func (p *PostgresOutlet) writeToPostgres(bucket *Bucket) error {
 	if err != nil {
 		return err
 	}
-
+	print(bucket.String())
+	print("\n")
 	vals := string(encoding.EncodeArray(bucket.Vals, '{', '}', ','))
 	row := tx.QueryRow(`
 		SELECT id
