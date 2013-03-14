@@ -427,11 +427,13 @@ func (p *PostgresOutlet) runPutBuckets() {
 
 func (p *PostgresOutlet) writeToPostgres(bucket *Bucket) error {
 	tx, err := p.pgConn.Begin()
+	print("created transaction\n")
 	if err != nil {
 		return err
 	}
 
 	err = bucket.Get()
+	print("gitted bucket\n")
 	if err != nil {
 		return err
 	}
@@ -442,7 +444,7 @@ func (p *PostgresOutlet) writeToPostgres(bucket *Bucket) error {
 		FROM buckets
 		WHERE token = $1 AND measure = $2 AND source = $3 AND time = $4`,
 		bucket.Key.Token, bucket.Key.Name, bucket.Key.Source, bucket.Key.Time)
-
+	print("did queryRow\n")
 	var id sql.NullInt64
 	row.Scan(&id)
 
@@ -460,6 +462,7 @@ func (p *PostgresOutlet) writeToPostgres(bucket *Bucket) error {
 			bucket.Key.Token, bucket.Key.Name, bucket.Key.Source,
 			bucket.Key.Time, vals)
 		if err != nil {
+			print("shit blew up on insert\n")
 			tx.Rollback()
 			return err
 		}
