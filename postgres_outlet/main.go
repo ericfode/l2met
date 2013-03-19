@@ -1,6 +1,8 @@
 package main
 
 import (
+	"l2met/piping"
+	"l2met/store"
 	"l2met/utils"
 	"log"
 	"runtime"
@@ -31,12 +33,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to lock partition.")
 	}
-	redisRefSource := NewRedisRefSource(1, numPartitions, lockTTL, "postgres_outlet")
-	redisRefSource.Start()
-	outlets := make([]*PostgresOutlet, workers)
-	redisOutbox := redisRefSource.sender.NewOutputChannel("postgres")
+	redisSource := piping.NewRedisSource(1, numPartitions, lockTTL, "postgres_outlet")
+	redisSource.Start()
+	outlets := make([]*piping.PostgresOutlet, workers)
+	redisOutbox := redisSource.NewOutputChannel("postgres", 100)
 	for i := 0; i < workers; i++ {
-		outlets[i] = NewPostgresOutlet(redisOutbox, database_url)
+		outlets[i] = piping.NewPostgresOutlet(redisOutbox, 100, 60, database_url)
 		outlets[i].Start()
 	}
 
@@ -44,7 +46,7 @@ func main() {
 	report(redisOutbox)
 }
 
-func report(o chan *Bucket) {
+func report(o chan *store.Bucket) {
 	for _ = range time.Tick(time.Second * 5) {
 		utils.MeasureI("postgres_outlet.outbox", int64(len(o)))
 	}
