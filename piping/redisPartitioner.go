@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
+	"l2met/utils"
 	"os"
 	"time"
 )
@@ -56,6 +57,7 @@ func (s *RedisPartitioner) lockPartition() (uint64, error) {
 		for p := uint64(0); p < s.numPartitions; p++ {
 			lockString := s.GetLockString(s.mailbox, p)
 			locked, err := s.tryLock(lockString, s.lockTTL)
+			utils.MeasureI("redis.partitioner.locked.id", int64(p))
 			if err != nil {
 				return 0, err
 			}
