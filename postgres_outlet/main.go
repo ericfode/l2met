@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to lock partition.")
 	}
-	redisSource := piping.NewRedisSource(60, numPartitions, lockTTL, "postgres_outlet")
+	redisSource := piping.NewRedisSource(1, numPartitions, lockTTL, "postgres_outlet")
 	redisSource.Start()
 	outlets := make([]*piping.PostgresOutlet, workers)
 	redisOutbox := redisSource.GetOutput()
