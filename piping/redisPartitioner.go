@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"l2met/utils"
+	"math/rand"
 	"os"
 	"time"
 )
@@ -53,18 +54,20 @@ func (s *RedisPartitioner) LockPartition() uint64 {
 }
 
 func (s *RedisPartitioner) lockPartition() (uint64, error) {
+
+	off := uint64(rand.Int63())
 	for {
-		for p := uint64(0); p < s.numPartitions; p++ {
-			lockString := s.GetLockString(s.mailbox, p)
-			locked, err := s.tryLock(lockString, s.lockTTL)
-			utils.MeasureI("redis.partitioner.locked.id", int64(p))
-			if err != nil {
-				return 0, err
-			}
-			if locked {
-				return p, nil
-			}
+		p := uint64(off % s.numPartitions)
+		lockString := s.GetLockString(s.mailbox, p)
+		locked, err := s.tryLock(lockString, s.lockTTL)
+		utils.MeasureI("redis.partitioner.locked.id", int64(p))
+		if err != nil {
+			return 0, err
 		}
+		if locked {
+			return p, nil
+		}
+		off++
 		time.Sleep(time.Second * 5)
 	}
 	return 0, errors.New("LockPartition impossible broke the loop.")

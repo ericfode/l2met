@@ -2,7 +2,8 @@ package piping
 
 import (
 	"fmt"
-  "l2met/store"
+	"l2met/store"
+	"l2met/utils"
 )
 
 type RandomOutlet struct {
@@ -36,25 +37,38 @@ func (t *RandomOutlet) runCheckBuckets() {
 	found := 0
 	for {
 		select {
+
 		case <-t.control:
 			return
-		case next, _ := <-t.receiver.input:
+
+		case next := <-t.receiver.input:
+			utils.MeasureI("randomOutlet.input.channel.length", int64(len(t.receiver.input)))
 			//nice place for benchmark
 			//check to see if the bucket is the same as the one just sent
-			other, hok := t.testList[next.Key.Token]
-			if !hok {
-				print("Got Bad bucket\n")
-				t.success <- false
-			}
-			if !Compare(next, other) {
-				print("Got bad bucket\n")
-				t.success <- false
-			}
 			found++
-			if found == t.expected {
+			other, hok := t.testList[next.Key.Token]
+
+			if !hok {
+				print("Bucket Not found in list\n")
+				t.success <- false
+
+			} else {
+
+				if !Compare(next, other) {
+					print("Buckets values wrong\n")
+					t.success <- false
+				}
+
 				t.success <- true
+				println(found)
 			}
+
+			if found == t.expected {
+				print("got them all!\n")
+			}
+
 		}
+
 	}
 }
 

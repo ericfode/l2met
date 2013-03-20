@@ -1,5 +1,9 @@
 package piping
 
+import (
+	"l2met/store"
+)
+
 type CopyTask struct {
 	sender  Sender
 	control chan bool
@@ -12,12 +16,9 @@ func NewCopyTask(sender Sender) (cp *CopyTask) {
 	return cp
 }
 
-func (cp *CopyTask) copy() {
-	outputs := cp.sender.GetOutputChannels()
-	sc := cp.sender.GetSenderChannel()
-	first := <-sc
-	for _, channel := range outputs {
-		channel <- first
+func (cp *CopyTask) copy(b *store.Bucket) {
+	for _, channel := range cp.sender.GetOutputChannels() {
+		channel <- b
 	}
 }
 
@@ -26,8 +27,8 @@ func (cp *CopyTask) Start() {
 		select {
 		case <-cp.control:
 			return
-		default:
-			cp.copy()
+		case b := <-cp.sender.GetSenderChannel():
+			cp.copy(b)
 		}
 	}
 }

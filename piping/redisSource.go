@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-//This does not belong here, but i am not sure where it should be
 const keySep = "→"
 
 type RedisSource struct {
@@ -44,7 +43,7 @@ func (s *RedisSource) Stop() {
 }
 
 func (s *RedisSource) runScanBuckets() {
-	for t := range time.Tick(time.Second) {
+	for t := range time.Tick(time.Second * time.Duration(s.fetchInterval)) {
 		select {
 		case <-s.control:
 			utils.MeasureI("redis.source.stop.count", 1)
@@ -56,8 +55,8 @@ func (s *RedisSource) runScanBuckets() {
 	}
 }
 
-func (s *RedisSource) NewOutputChannel(name string, bufferSize int) chan *store.Bucket {
-	return s.sender.NewOutputChannel(name, uint64(bufferSize))
+func (s *RedisSource) GetOutput() chan *store.Bucket {
+	return s.sender.GetOutput()
 }
 
 func (s *RedisSource) fetch(t time.Time) {
@@ -86,6 +85,7 @@ func (s *RedisSource) scanBuckets(mailbox string) {
 	var delCount int64
 	var members []string
 	redis.Scan(reply, &members, &delCount)
+	utils.MeasureI("redis.get.members.count", int64(len(members)))
 	for _, member := range members {
 		k, err := ParseKey(member)
 		if err != nil {
@@ -98,7 +98,9 @@ func (s *RedisSource) scanBuckets(mailbox string) {
 			b.Get()
 			utils.MeasureT("redis.source.get.bucket.time", t)
 		}
+		println("saved bucket")
 		sc <- b
+		utils.MeasureI("redis.source.sender.channel.len", int64(len(s.sender.GetOutput())))
 	}
 }
 

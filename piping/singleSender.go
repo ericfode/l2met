@@ -19,7 +19,6 @@ func NewSingleSender() (s *SingleSender) {
 }
 
 func (s *SingleSender) NewOutputChannel(name string, size uint64) chan *store.Bucket {
-	s.output = make(chan *store.Bucket, size)
 	return s.output
 }
 
