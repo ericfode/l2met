@@ -36,7 +36,7 @@ func main() {
 	redisSource := piping.NewRedisSource(60, numPartitions, lockTTL, "postgres_outlet")
 	redisSource.Start()
 	outlets := make([]*piping.PostgresOutlet, workers)
-	redisOutbox := redisSource.NewOutputChannel("postgres", 10000)
+	redisOutbox := redisSource.GetOutput()
 	for i := 0; i < workers; i++ {
 		outlets[i] = piping.NewPostgresOutlet(redisOutbox, 1000, 60, database_url)
 		outlets[i].Start()
