@@ -213,7 +213,8 @@ func (b *Bucket) Put(partitions uint64) error {
 	defer rc.Close()
 	libratoMailBox := fmt.Sprintf("librato_outlet.%d", partition)
 	pgMailBox := fmt.Sprintf("postgres_outlet.%d", partition)
-
+	print("pushing bucket on to#")
+	println(pgMailBox)
 	rc.Send("MULTI")
 	rc.Send("RPUSH", key, vals)
 	rc.Send("EXPIRE", key, 300)

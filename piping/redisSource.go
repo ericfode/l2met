@@ -71,7 +71,8 @@ func (s *RedisSource) scanBuckets(mailbox string) {
 
 	rc := redisPool.Get()
 	defer rc.Close()
-
+	print("looking for bucket at#")
+	println(mailbox)
 	rc.Send("MULTI")
 	rc.Send("SMEMBERS", mailbox)
 	rc.Send("DEL", mailbox)
