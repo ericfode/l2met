@@ -69,11 +69,19 @@ func (s *RedisSource) fetch(t time.Time) {
 func (s *RedisSource) scanBuckets(mailbox string) {
 	sc := s.sender.GetSenderChannel()
 	defer utils.MeasureT("redis.scan-buckets.time", time.Now())
+	buckets, _ := s.EmptyMailbox(mailbox)
+	for _, b := range buckets {
+		if s.Eager {
+			b.Get()
+		}
+		sc <- b
+	}
+	utils.MeasureI("redis.source.sender.channel.len", int64(len(s.sender.GetOutput())))
+}
 
+func (s *RedisSource) EmptyMailbox(mailbox string) (buckets []*store.Bucket, deleteCount int64) {
 	rc := redisPool.Get()
 	defer rc.Close()
-	print("looking for bucket at#")
-	println(mailbox)
 	rc.Send("MULTI")
 	rc.Send("SMEMBERS", mailbox)
 	rc.Send("DEL", mailbox)
@@ -83,27 +91,21 @@ func (s *RedisSource) scanBuckets(mailbox string) {
 		fmt.Printf("at=%q error%s\n", "redset-smembers", err)
 		return
 	}
-
-	var delCount int64
 	var members []string
-	redis.Scan(reply, &members, &delCount)
-	utils.MeasureI("redis.get.members.count", int64(len(members)))
-	for _, member := range members {
+	redis.Scan(reply, &members, &deleteCount)
+	buckets = make([]*store.Bucket, deleteCount, deleteCount)
+	for i, member := range members {
 		k, err := ParseKey(member)
 		if err != nil {
 			fmt.Printf("at=parse-key error=%s\n", err)
 			continue
 		}
-		b := &store.Bucket{Key: *k}
-		if s.Eager {
-			t := time.Now()
-			b.Get()
-			utils.MeasureT("redis.source.get.bucket.time", t)
-		}
-		println("saved bucket")
-		sc <- b
-		utils.MeasureI("redis.source.sender.channel.len", int64(len(s.sender.GetOutput())))
+		buckets[i] = &store.Bucket{Key: *k}
 	}
+
+	utils.MeasureI("redis.get.members.count", int64(len(members)))
+
+	return
 }
 
 func ParseKey(s string) (*store.BKey, error) {
