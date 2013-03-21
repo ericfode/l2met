@@ -33,16 +33,19 @@ type BKey struct {
 func ParseKey(s string) (*BKey, error) {
 	parts := strings.Split(s, keySep)
 	if len(parts) < 3 {
+		fmt.Printf("at=parse-key error=\"wrong number of parts\"\n")
 		return nil, errors.New("bucket: Unable to parse bucket key.")
 	}
 
 	t, err := strconv.ParseInt(parts[0], 10, 54)
 	if err != nil {
+		fmt.Printf("at=parse-key error=%s\n", err)
 		return nil, err
 	}
 
 	time := time.Unix(t, 0)
 	if err != nil {
+		fmt.Printf("at=parse-key error=%s\n", err)
 		return nil, err
 	}
 
@@ -53,6 +56,7 @@ func ParseKey(s string) (*BKey, error) {
 	if len(parts) > 3 {
 		key.Source = parts[3]
 	}
+
 	return key, nil
 }
 
@@ -118,6 +122,57 @@ func NewBucket(token string, rdr *bufio.Reader) <-chan *Bucket {
 		}
 	}(buckets)
 	return buckets
+}
+
+func PutBucket(b *Bucket, mailbox string, numPartitions uint64) {
+	defer utils.MeasureT("bucket.put", time.Now())
+
+	b.Lock()
+	vals := b.Vals
+	key := b.String()
+	//It might make since for this to be relegated to the RedisPartitioner class
+	partition := b.Partition([]byte(key), numPartitions)
+	b.Unlock()
+
+	rc := redisPool.Get()
+	defer rc.Close()
+	mailBox := fmt.Sprintf("%s.%d", mailbox, partition)
+
+	rc.Send("MULTI")
+	rc.Send("RPUSH", key, vals)
+	rc.Send("EXPIRE", key, 300)
+	rc.Send("SADD", mailBox, key)
+	rc.Send("EXPIRE", mailBox, 300)
+	rc.Do("EXEC")
+
+	//Some sort of reporting should be happening here
+	//if err != nil {   
+	//}
+}
+
+func EmptyMailbox(mailbox string) (buckets []*Bucket, deleteCount int64) {
+	rc := redisPool.Get()
+	defer rc.Close()
+	rc.Send("MULTI")
+	rc.Send("SMEMBERS", mailbox)
+	rc.Send("DEL", mailbox)
+	reply, err := redis.Values(rc.Do("EXEC"))
+
+	if err != nil {
+		fmt.Printf("at=%q error%s\n", "redset-smembers", err)
+		return
+	}
+	var members []string
+	redis.Scan(reply, &members, &deleteCount)
+	buckets = make([]*Bucket, deleteCount, deleteCount)
+	for i, member := range members {
+		k, _ := ParseKey(member)
+		buckets[i] = &Bucket{Key: *k}
+	}
+
+	utils.MeasureI("redis.get.members.count", int64(len(members)))
+
+	return
 }
 
 func ScanBuckets(mailbox string) <-chan *Bucket {
