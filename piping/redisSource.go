@@ -28,6 +28,7 @@ func NewRedisSource(fetchInterval uint64, numPartitions uint64, lockTTL uint64, 
 		control:       make(chan bool),
 		Eager:         false,
 		fetchInterval: fetchInterval,
+		mailbox:       mailbox,
 		partitioner:   NewRedisPartitioner(numPartitions, lockTTL, mailbox)}
 	return r
 }
