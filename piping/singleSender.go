@@ -4,6 +4,9 @@ import (
 	"l2met/store"
 )
 
+//Sender with embedded copy task. it is capeable of doing multiple channels
+//though it is not exposed. This is planning for future abstractions 
+//and does not degrade the experince of using it currnetly so it was left in 
 type SingleSender struct {
 	output        chan *store.Bucket
 	senderChannel chan *store.Bucket
