@@ -81,6 +81,7 @@ func WriteSliceToPostgres(batch []*Bucket, count int) int {
 }
 
 func WriteBucketToPostgres(bucket *Bucket) error {
+	println(bucket)
 	defer utils.MeasureT("postgres.write.bucket.time", time.Now())
 	if bucket == nil {
 		utils.MeasureI("postgres.write.nilBucket.error", 1)
