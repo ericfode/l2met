@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+//The postgres outlet accepts a channel of incomming buckets and dumps them
+//into postgres. If the bucket is already partially in postgres then it is 
+//updated with the differnces that are presented in the incomming buckets
+//
+//The PostgresOutlet also batches the incomming buckets so that they can
+//be flushed if the outlet needs to stop, and to prepare for batched queries
+//to improve the performance of the postgres outlet
 type PostgresOutlet struct {
 	reciver   *SingleReciver
 	control   chan bool
@@ -18,6 +25,9 @@ type PostgresOutlet struct {
 	ticker    chan bool
 }
 
+//Accepts and incomming channel, a batchsize (the point at which a batch is
+//dumpped into Postgres, and the intended delay for flushing
+//the bucket batch.
 func NewPostgresOutlet(input chan *store.Bucket, batchSize uint, batchDelay uint) (p *PostgresOutlet) {
 	p = &PostgresOutlet{
 		reciver:   NewSingleReciver(input),
