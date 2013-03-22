@@ -12,6 +12,8 @@ type RedisOutlet struct {
 	partitioner *RedisPartitioner
 }
 
+//Redis outlet takes buckets from the input channel and addes them to the 
+//specified mailbox on the next avalible partition 
 func NewRedisOutlet(input chan *store.Bucket, numPartitions uint64, lockTTL uint64, mailbox string) (r *RedisOutlet) {
 	r = &RedisOutlet{
 		reciver:     NewSingleReciver(input),

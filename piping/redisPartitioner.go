@@ -3,7 +3,7 @@ package piping
 import (
 	"errors"
 	"fmt"
-	"github.com/garyburd/redigo/redis"
+	"l2met/store"
 	"l2met/utils"
 	"math/rand"
 	"os"
@@ -55,35 +55,23 @@ func (s *RedisPartitioner) LockPartition() uint64 {
 
 func (s *RedisPartitioner) lockPartition() (uint64, error) {
 
-	off := uint64(rand.Int63())
+	offset := uint64(rand.Int63())
 	for {
-		p := uint64(off % s.numPartitions)
-		lockString := s.GetLockString(s.mailbox, p)
-		locked, err := s.tryLock(lockString, s.lockTTL)
-		utils.MeasureI("redis.partitioner.locked.id", int64(p))
+		//use mod so that we can generate a random number and start at that
+		//mailbox, other wise low numbered mailboxes get preference and if there
+		//are less outlets the sources they will never get to the higher number
+		//mailboxes
+		partition := uint64(offset % s.numPartitions)
+		locked, err := store.TryLock(s.mailbox, partition, s.lockTTL)
+		utils.MeasureI("redis.partitioner.locked.id", int64(partition))
 		if err != nil {
 			return 0, err
 		}
 		if locked {
-			return p, nil
+			return partition, nil
 		}
-		off++
+		offset++
 		time.Sleep(time.Second * 5)
 	}
 	return 0, errors.New("LockPartition impossible broke the loop.")
-}
-
-func (s *RedisPartitioner) tryLock(lockString string, ttl uint64) (bool, error) {
-	rc := redisPool.Get()
-	defer rc.Close()
-
-	new := time.Now().Unix() + int64(ttl) + 1
-	old, err := redis.Int(rc.Do("GETSET", lockString, new))
-	// If the ErrNil is present, the old value is set to 0.
-	if err != nil && err != redis.ErrNil && old == 0 {
-		return false, err
-	}
-	// If the new value is greater than the old
-	// value, then the old lock is expired.
-	return new > int64(old), nil
 }

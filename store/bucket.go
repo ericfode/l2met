@@ -124,57 +124,6 @@ func NewBucket(token string, rdr *bufio.Reader) <-chan *Bucket {
 	return buckets
 }
 
-func PutBucket(b *Bucket, mailbox string, numPartitions uint64) {
-	defer utils.MeasureT("bucket.put", time.Now())
-
-	b.Lock()
-	vals := b.Vals
-	key := b.String()
-	//It might make since for this to be relegated to the RedisPartitioner class
-	partition := b.Partition([]byte(key), numPartitions)
-	b.Unlock()
-
-	rc := redisPool.Get()
-	defer rc.Close()
-	mailBox := fmt.Sprintf("%s.%d", mailbox, partition)
-
-	rc.Send("MULTI")
-	rc.Send("RPUSH", key, vals)
-	rc.Send("EXPIRE", key, 300)
-	rc.Send("SADD", mailBox, key)
-	rc.Send("EXPIRE", mailBox, 300)
-	rc.Do("EXEC")
-
-	//Some sort of reporting should be happening here
-	//if err != nil {   
-	//}
-}
-
-func EmptyMailbox(mailbox string) (buckets []*Bucket, deleteCount int64) {
-	rc := redisPool.Get()
-	defer rc.Close()
-	rc.Send("MULTI")
-	rc.Send("SMEMBERS", mailbox)
-	rc.Send("DEL", mailbox)
-	reply, err := redis.Values(rc.Do("EXEC"))
-
-	if err != nil {
-		fmt.Printf("at=%q error%s\n", "redset-smembers", err)
-		return
-	}
-	var members []string
-	redis.Scan(reply, &members, &deleteCount)
-	buckets = make([]*Bucket, deleteCount, deleteCount)
-	for i, member := range members {
-		k, _ := ParseKey(member)
-		buckets[i] = &Bucket{Key: *k}
-	}
-
-	utils.MeasureI("redis.get.members.count", int64(len(members)))
-
-	return
-}
-
 func ScanBuckets(mailbox string) <-chan *Bucket {
 	buckets := make(chan *Bucket)
 

@@ -1,13 +1,8 @@
 package piping
 
 import (
-	"errors"
-	"fmt"
-	"github.com/garyburd/redigo/redis"
 	"l2met/store"
 	"l2met/utils"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -34,7 +29,7 @@ func NewRedisSource(fetchInterval uint64, numPartitions uint64, lockTTL uint64, 
 }
 
 func (s *RedisSource) Start() {
-	go s.runScanBuckets()
+	go s.runLoop()
 	go s.sender.Start()
 }
 
@@ -43,15 +38,15 @@ func (s *RedisSource) Stop() {
 	s.sender.Stop()
 }
 
-func (s *RedisSource) runScanBuckets() {
-	for t := range time.Tick(time.Second * time.Duration(s.fetchInterval)) {
+func (s *RedisSource) runLoop() {
+	for {
 		select {
 		case <-s.control:
 			utils.MeasureI("redis.source.stop.count", 1)
 			return
 		case <-time.Tick(time.Second * time.Duration(s.fetchInterval)):
 			utils.MeasureI("redis.source.tick.fetch.count", 1)
-			s.fetch(t)
+			s.getMail(s.mailbox)
 		}
 	}
 }
@@ -60,16 +55,10 @@ func (s *RedisSource) GetOutput() chan *store.Bucket {
 	return s.sender.GetOutput()
 }
 
-func (s *RedisSource) fetch(t time.Time) {
-	fmt.Printf("at=start_fetch minute=%d\n", t.Minute())
-	mailbox := fmt.Sprintf("%s.%d", s.mailbox, s.partitioner.LockPartition())
-	s.scanBuckets(mailbox)
-}
-
-func (s *RedisSource) scanBuckets(mailbox string) {
+func (s *RedisSource) getMail(mailbox string) {
 	sc := s.sender.GetSenderChannel()
 	defer utils.MeasureT("redis.scan-buckets.time", time.Now())
-	buckets, _ := s.EmptyMailbox(mailbox)
+	buckets, _ := store.EmptyMailboxPartition(mailbox, int(s.partitioner.LockPartition()))
 	for _, b := range buckets {
 		if s.Eager {
 			b.Get()
@@ -77,59 +66,4 @@ func (s *RedisSource) scanBuckets(mailbox string) {
 		sc <- b
 	}
 	utils.MeasureI("redis.source.sender.channel.len", int64(len(s.sender.GetOutput())))
-}
-
-func (s *RedisSource) EmptyMailbox(mailbox string) (buckets []*store.Bucket, deleteCount int64) {
-	rc := redisPool.Get()
-	defer rc.Close()
-	rc.Send("MULTI")
-	rc.Send("SMEMBERS", mailbox)
-	rc.Send("DEL", mailbox)
-	reply, err := redis.Values(rc.Do("EXEC"))
-
-	if err != nil {
-		fmt.Printf("at=%q error%s\n", "redset-smembers", err)
-		return
-	}
-	var members []string
-	redis.Scan(reply, &members, &deleteCount)
-	buckets = make([]*store.Bucket, deleteCount, deleteCount)
-	for i, member := range members {
-		k, err := ParseKey(member)
-		if err != nil {
-			fmt.Printf("at=parse-key error=%s\n", err)
-			continue
-		}
-		buckets[i] = &store.Bucket{Key: *k}
-	}
-
-	utils.MeasureI("redis.get.members.count", int64(len(members)))
-
-	return
-}
-
-func ParseKey(s string) (*store.BKey, error) {
-	parts := strings.Split(s, keySep)
-	if len(parts) < 3 {
-		return nil, errors.New("bucket: Unable to parse bucket key.")
-	}
-
-	t, err := strconv.ParseInt(parts[0], 10, 54)
-	if err != nil {
-		return nil, err
-	}
-
-	time := time.Unix(t, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	key := new(store.BKey)
-	key.Time = time
-	key.Token = parts[1]
-	key.Name = parts[2]
-	if len(parts) > 3 {
-		key.Source = parts[3]
-	}
-	return key, nil
 }
