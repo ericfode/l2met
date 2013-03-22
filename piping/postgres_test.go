@@ -2,22 +2,13 @@ package piping
 
 import (
 	"l2met/store"
-	"os/exec"
 	"testing"
 	"time"
 )
 
-func getNewTestDatabase() string {
-	app := "curl"
-	arg0 := "http://api.postgression.com"
-	cmd := exec.Command(app, arg0)
-	out, err := cmd.Output()
-	if err != nil {
-		panic("Can't get DB")
-	}
-	return string(out)
-}
-
+//Tests low level postgres interaction by sending a single bucket to it
+//using the same code that the outlet uses.
+//TODO: add verificaion
 func TestPgSendBucket(t *testing.T) {
 	err := store.WriteBucketToPostgres(GenerateBucket())
 
@@ -27,6 +18,8 @@ func TestPgSendBucket(t *testing.T) {
 	}
 }
 
+//Tests sending a batch of items to postgres
+//TODO: add verification beyond postgres saying trust me it worked
 func TestPgSendBatch(t *testing.T) {
 	bslice := NewBucketSlice(4)
 	count := store.WriteSliceToPostgres(bslice, 4)
@@ -37,26 +30,24 @@ func TestPgSendBatch(t *testing.T) {
 
 }
 
+//Tests setting up a fairly realistic group of compenents to be used
+//with the PostgresOutlet
 func TestPgSendMulti(t *testing.T) {
 	testSource := NewRandomSource(8)
-	pgChan := testSource.sender.NewOutputChannel("pgOut", 50)
-	pgOutlet := NewPostgresOutlet(pgChan, 4, 4)
-	pgOutlet2 := NewPostgresOutlet(pgChan, 4, 4)
+	pgOutlet := NewPostgresOutlet(testSource.GetOutput(), 4, 4)
+	pgOutlet2 := NewPostgresOutlet(testSource.GetOutput(), 4, 4)
 	testSource.Start()
 	pgOutlet.Start()
 	pgOutlet2.Start()
 	for pgOutlet.GetMetrics()["commits"]+pgOutlet2.GetMetrics()["commits"] < 8 {
-		println(pgOutlet.GetMetrics()["commits"])
-		println(pgOutlet2.GetMetrics()["commits"])
 		time.Sleep(time.Second)
 	}
 	pgOutlet2.Stop()
 	pgOutlet.Stop()
-	t.Logf("pg1: %v \n pg2: %v", pgOutlet.GetMetrics(), pgOutlet2.GetMetrics())
 	if pgOutlet.GetMetrics()["commits"]+pgOutlet2.GetMetrics()["commits"] < 8 {
 		t.FailNow()
 	}
-	if len(pgChan) != 0 {
+	if len(testSource.GetOutput()) != 0 {
 		t.FailNow()
 	}
 }
