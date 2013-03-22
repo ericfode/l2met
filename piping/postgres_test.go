@@ -28,8 +28,7 @@ func TestPgSendBucket(t *testing.T) {
 }
 
 func TestPgSendBatch(t *testing.T) {
-	testSource := NewRandomSource(0)
-	bslice := testSource.Slice(4)
+	bslice := NewBucketSlice(4)
 	count := store.WriteSliceToPostgres(bslice, 4)
 
 	if count != 4 {
