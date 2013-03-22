@@ -10,6 +10,8 @@ import (
 
 var chars = "abcdefghijklmonpqrstuvwxyz"
 
+//Generates a random string of a givin length
+//Useful when generating buckets
 func NewRandomString(length int) (r string) {
 	if length < 1 {
 		return
@@ -22,6 +24,7 @@ func NewRandomString(length int) (r string) {
 	return r
 }
 
+//Generates a new UUID, though not complient with UUID2 standards
 func NewUUID() string {
 	f, _ := os.Open("/dev/urandom")
 	b := make([]byte, 16)
@@ -31,6 +34,7 @@ func NewUUID() string {
 	return uuid
 }
 
+//Generates a slice of floats (again useful for generating buckets)
 func NewRandomFloatSlice(length int) (r []float64) {
 	if length < 1 {
 		return
@@ -42,6 +46,9 @@ func NewRandomFloatSlice(length int) (r []float64) {
 	return r
 }
 
+//A source that generates a givin number of random buckets and exposes 
+//a map containing all of the generated buckets which can be retrived using
+//the key property of the bucket.
 type RandomSource struct {
 	sender   *SingleSender
 	testList map[string]*store.Bucket
@@ -49,6 +56,7 @@ type RandomSource struct {
 	count    int
 }
 
+//Generates a single random bucket that works with l2met.
 func GenerateBucket() (b *store.Bucket) {
 	b = &store.Bucket{
 		Key: store.BKey{
@@ -60,6 +68,8 @@ func GenerateBucket() (b *store.Bucket) {
 	return b
 }
 
+//Returns a new Random source that will generate a givin number of 
+//Buckets
 func NewRandomSource(count int) (t *RandomSource) {
 	t = &RandomSource{
 		sender:   NewSingleSender(),
@@ -78,7 +88,8 @@ func (t *RandomSource) Stop() {
 	t.sender.Stop()
 }
 
-func (t *RandomSource) Slice(count int) []*store.Bucket {
+//Generates a slive of random buckets
+func NewBucketSlice(count int) []*store.Bucket {
 	buckets := make([]*store.Bucket, count)
 	for i := 0; i < count; i = i + 1 {
 		buckets[i] = GenerateBucket()
@@ -104,6 +115,12 @@ func (t *RandomSource) runGenerateBuckets() {
 	}
 }
 
+func (t *RandomSource) GetOutput() chan *store.Bucket {
+	return t.sender.GetOutput()
+}
+
+//Buts a bucket into the list of generated buckets and propagates it to the
+//output channel of the random source.
 func (t *RandomSource) PutBucket(b *store.Bucket) {
 	t.testList[b.Key.Token] = b
 	t.sender.GetSenderChannel() <- b
