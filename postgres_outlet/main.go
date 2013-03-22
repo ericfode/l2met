@@ -25,7 +25,6 @@ func init() {
 	processInterval = utils.EnvInt("POSTGRES_INTERVAL", 5)
 	numPartitions = utils.EnvUint64("NUM_OUTLET_PARTITIONS", 1)
 	lockTTL = utils.EnvUint64("LOCK_TTL", 10)
-	database_url = utils.EnvString("DATABASE_URL", "")
 }
 
 func main() {
@@ -38,7 +37,7 @@ func main() {
 	outlets := make([]*piping.PostgresOutlet, workers)
 	redisOutbox := redisSource.GetOutput()
 	for i := 0; i < workers; i++ {
-		outlets[i] = piping.NewPostgresOutlet(redisOutbox, 2000, 60, database_url)
+		outlets[i] = piping.NewPostgresOutlet(redisOutbox, 2000, 60)
 		outlets[i].Start()
 	}
 
