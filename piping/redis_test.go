@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+//Emptys redis instance and tests a single bucket on a single partition
 func TestSingleBucketToRedis(t *testing.T) {
 	store.FlushEverything()
 	b := GenerateBucket()
