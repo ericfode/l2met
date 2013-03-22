@@ -8,6 +8,8 @@ import (
 
 const keySep = "→"
 
+//The RedisSource aggrogates and removes buckets from the first avalible 
+//partition of a givin mailbox.
 type RedisSource struct {
 	sender        *SingleSender
 	control       chan bool
@@ -17,6 +19,11 @@ type RedisSource struct {
 	partitioner   *RedisPartitioner
 }
 
+//Return a new redis source taking the fetchInterval (the time that the redis
+//source waits to pull redis), numPartitions (the number of partitions that
+//the redis mailbox is devided into), lockTTL (the time that a lock on a
+//partition lives (genrally less then 5 seconds), and mailbox (the name of
+//The redis mailbox that it is using
 func NewRedisSource(fetchInterval uint64, numPartitions uint64, lockTTL uint64, mailbox string) (r *RedisSource) {
 	r = &RedisSource{
 		sender:        NewSingleSender(),
@@ -28,11 +35,16 @@ func NewRedisSource(fetchInterval uint64, numPartitions uint64, lockTTL uint64, 
 	return r
 }
 
+//Starts the sender (the thing that gets the buckets aggrogated out of 
+//the RedisSource) and the loop to pull items out of redis.
 func (s *RedisSource) Start() {
 	go s.runLoop()
 	go s.sender.Start()
 }
 
+//Stops the senders work, any items that have been pulled into memory but not
+//taken out of the output channels will remain in the out put channels
+//Any items left in the mail box will be left alone.
 func (s *RedisSource) Stop() {
 	s.control <- true
 	s.sender.Stop()
@@ -51,6 +63,8 @@ func (s *RedisSource) runLoop() {
 	}
 }
 
+//Gets the output channel for the RedisSouce. This implementation only has
+//a single output channel.
 func (s *RedisSource) GetOutput() chan *store.Bucket {
 	return s.sender.GetOutput()
 }
