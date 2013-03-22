@@ -111,7 +111,7 @@ func TestMultiRedis(t *testing.T) {
 	redisOutlet2 := NewRedisOutlet(testSource.sender.GetOutput(), numPartitions, lockTTL, "testBox")
 	redisOutlet := NewRedisOutlet(testSource.sender.GetOutput(), numPartitions, lockTTL, "testBox")
 	redisSource := NewRedisSource(fetchInterval, numPartitions, lockTTL, "testBox")
-	testOutlet := NewRandomOutlet(100, testSource.testList, redisSource.sender.GetOutput())
+	testOutlet := NewRandomOutlet(100, testSource.testList, redisSource.GetOutput())
 	testSource.Start()
 	time.Sleep(20)
 	redisOutlet2.Start()
