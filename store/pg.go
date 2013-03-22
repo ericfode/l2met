@@ -70,7 +70,7 @@ func WriteSliceToPostgres(batch []*Bucket, count int) int {
 		bucket := batch[pos]
 		err := WriteBucketToPostgres(bucket)
 		if err != nil {
-			utils.MeasureI("postgres.write.drop.count", 1)
+			utils.MeasureI("postgres.write.drop", 1)
 			dropped++
 		}
 	}
@@ -83,18 +83,18 @@ func WriteSliceToPostgres(batch []*Bucket, count int) int {
 func WriteBucketToPostgres(bucket *Bucket) error {
 	defer utils.MeasureT("postgres.write.bucket.time", time.Now())
 	if bucket == nil {
-		utils.MeasureI("postgres.write.nilBucket.count", 1)
+		utils.MeasureI("postgres.write.nilBucket.error", 1)
 		return errors.New("got nil bucket")
 	}
 	tx, err := pg.Begin()
 	if err != nil {
-		utils.MeasureI("postgres.write.transaction.start.error.count", 1)
+		utils.MeasureI("postgres.write.transactionBegin.error", 1)
 		return err
 	}
 	if bucket.Vals == nil {
 		err = bucket.GetFromRedis()
 		if err != nil {
-			utils.MeasureI("postgres.write.getBucket.error.count", 1)
+			utils.MeasureI("postgres.write.getBucket.error", 1)
 			return err
 		}
 	}
