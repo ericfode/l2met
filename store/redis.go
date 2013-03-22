@@ -47,7 +47,7 @@ func PingRedis() error {
 
 //Put a single bucket into redis 
 func PutBucket(b *Bucket, mailbox string, numPartitions uint64) {
-	defer utils.MeasureT("bucket.put", time.Now())
+	defer utils.MeasureT("redis.bucket.put", time.Now())
 
 	b.Lock()
 	vals := b.Vals
@@ -119,7 +119,7 @@ func EmptyMailboxPartition(mailbox string, partition int) (buckets []*Bucket, de
 		buckets[i] = &Bucket{Key: *k}
 	}
 
-	utils.MeasureI("redis.get.members.count", int64(len(members)))
+	utils.MeasureI("redis.emptyMailbox.members", int64(len(members)))
 
 	return
 }

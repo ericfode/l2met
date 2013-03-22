@@ -42,10 +42,10 @@ func (s *RedisSource) runLoop() {
 	for {
 		select {
 		case <-s.control:
-			utils.MeasureI("redis.source.stop.count", 1)
+			utils.MeasureI("redis.source.stop", 1)
 			return
 		case <-time.Tick(time.Second * time.Duration(s.fetchInterval)):
-			utils.MeasureI("redis.source.tick.fetch.count", 1)
+			utils.MeasureI("redis.source.fetch.tick", 1)
 			s.getMail(s.mailbox)
 		}
 	}
@@ -57,7 +57,7 @@ func (s *RedisSource) GetOutput() chan *store.Bucket {
 
 func (s *RedisSource) getMail(mailbox string) {
 	sc := s.sender.GetSenderChannel()
-	defer utils.MeasureT("redis.scan-buckets.time", time.Now())
+	defer utils.MeasureT("redis.source.getMailbox.time", time.Now())
 	buckets, _ := store.EmptyMailboxPartition(mailbox, int(s.partitioner.LockPartition()))
 	for _, b := range buckets {
 		if s.Eager {
@@ -65,5 +65,5 @@ func (s *RedisSource) getMail(mailbox string) {
 		}
 		sc <- b
 	}
-	utils.MeasureI("redis.source.sender.channel.len", int64(len(s.sender.GetOutput())))
+	utils.MeasureI("redis.source.outputChan.len", int64(len(s.sender.GetOutput())))
 }

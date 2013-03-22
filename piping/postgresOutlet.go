@@ -37,8 +37,6 @@ func NewPostgresOutlet(input chan *store.Bucket, batchSize uint, batchDelay uint
 //internally
 func (p *PostgresOutlet) initMetrics() {
 	p.metrics = make(map[string]int)
-	p.metrics["errors"] = 0
-	p.metrics["commitAttemps"] = 0
 	p.metrics["commits"] = 0
 }
 
@@ -53,7 +51,7 @@ func (p *PostgresOutlet) RestartMetrics() {
 //The reciver
 //The batcher
 func (p *PostgresOutlet) Start() {
-	utils.MeasureI("postgres.start.count", 1)
+	utils.MeasureI("postgres.outlet.start.count", 1)
 	go p.runPutBuckets()
 	go p.runBatcher()
 	go p.reciver.Start()
@@ -63,7 +61,7 @@ func (p *PostgresOutlet) Start() {
 func (p *PostgresOutlet) Stop() {
 	p.reciver.Stop()
 	p.control <- true
-	utils.MeasureI("postgres.stop.count", 1)
+	utils.MeasureI("postgres.outlet.stop.count", 1)
 }
 
 //Get the metrics hash
@@ -79,10 +77,10 @@ func (p *PostgresOutlet) runBatcher() {
 			p.control <- true
 			return
 		case <-time.Tick(time.Duration(p.delay) * time.Second):
-			utils.MeasureI("postgres.batcher.time.tick.count", 1)
+			utils.MeasureI("postgres.outlet.batch.time.tick", 1)
 			p.flush <- true
 		case <-p.tick():
-			utils.MeasureI("postgres.batcher.filled.tick.count", 1)
+			utils.MeasureI("postgres.outlet.batch.filled.tick", 1)
 			p.flush <- true
 		}
 	}
@@ -93,13 +91,13 @@ func (p *PostgresOutlet) runPutBuckets() {
 		select {
 		case <-p.control:
 			p.control <- true
-			utils.MeasureI("postgres.control.signal.count", 1)
+			utils.MeasureI("postgres.outlet.control.signal", 1)
 			return
 		case next := <-p.reciver.input:
 			p.AddToBatch(next)
-			utils.MeasureI("postgres.batch.size", int64(p.batchPos))
+			utils.MeasureI("postgres.outlet.batch.size", int64(p.batchPos))
 		case <-p.flush:
-			utils.MeasureI("postgres.batch.flush.count", 1)
+			utils.MeasureI("postgres.outlet.batch.flush", 1)
 			p.Flush()
 		}
 	}
