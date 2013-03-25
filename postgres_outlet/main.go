@@ -10,12 +10,10 @@ import (
 )
 
 var (
-	partitionId     uint64
 	numPartitions   uint64
 	workers         int
 	processInterval int
 	lockTTL         uint64
-	database_url    string
 )
 
 func init() {

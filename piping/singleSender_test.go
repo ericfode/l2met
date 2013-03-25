@@ -3,7 +3,6 @@ package piping
 import (
 	"l2met/store"
 	"testing"
-	"time"
 )
 
 func TestSingleSender(t *testing.T) {
@@ -14,11 +13,8 @@ func TestSingleSender(t *testing.T) {
 		Key: store.BKey{Name: "test"}}
 
 	go s.Start()
-	time.Sleep(10)
 	select {
 	case <-ichan:
 		return
-	default:
-		t.Errorf("value was not copied")
 	}
 }

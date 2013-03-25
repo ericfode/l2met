@@ -3,7 +3,6 @@ package piping
 import (
 	"l2met/store"
 	"testing"
-	"time"
 )
 
 //Emptys redis instance and tests a single bucket on a single partition
@@ -72,7 +71,6 @@ func TestSingleRedis(t *testing.T) {
 	redisSource := NewRedisSource(fetchInterval, numPartitions, lockTTL, "testBox")
 	testOutlet := NewRandomOutlet(50, testSource.testList, redisSource.sender.NewOutputChannel("verifier", 50))
 	testSource.Start()
-	time.Sleep(20)
 	redisOutlet.Start()
 	redisSource.Start()
 	testOutlet.Start()
@@ -92,9 +90,7 @@ func TestSingleRedis(t *testing.T) {
 			if fails > 0 {
 				t.FailNow()
 			}
-			//		println("testoutlet stop")
 			testOutlet.Stop()
-			//			println("redisoutlet stop")
 			redisOutlet.Stop()
 			redisSource.Stop()
 
@@ -114,7 +110,6 @@ func TestMultiRedis(t *testing.T) {
 	redisSource := NewRedisSource(fetchInterval, numPartitions, lockTTL, "testBox")
 	testOutlet := NewRandomOutlet(100, testSource.testList, redisSource.GetOutput())
 	testSource.Start()
-	time.Sleep(20)
 	redisOutlet2.Start()
 	redisOutlet.Start()
 	redisSource.Start()

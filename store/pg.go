@@ -91,12 +91,10 @@ func WriteBucketToPostgres(bucket *Bucket) error {
 		utils.MeasureI("postgres.write.transactionBegin.error", 1)
 		return err
 	}
-	if bucket.Vals == nil {
-		err = bucket.GetFromRedis()
-		if err != nil {
-			utils.MeasureI("postgres.write.getBucket.error", 1)
-			return err
-		}
+	err = bucket.GetFromRedis()
+	if err != nil {
+		utils.MeasureI("postgres.write.getBucket.error", 1)
+		return err
 	}
 
 	vals := string(encoding.EncodeArray(bucket.Vals, '{', '}', ','))
